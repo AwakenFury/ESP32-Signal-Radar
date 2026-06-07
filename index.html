@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 RF RADAR</title>
+    <style>
+        :root {
+            --bg-color: #050a05;
+            --panel-bg: rgba(10, 20, 10, 0.6);
+            --border-color: #1a401a;
+            --text-primary: #00ff00;
+            --text-dim: #4af24a;
+            --text-dark: #1b531b;
+            --wifi-color: #76ff03;
+            --ble-color: #00b0ff;
+            --bt-color: #ff6d00;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Courier New', Courier, monospace;
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 1100px;
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            grid-gap: 15px;
+        }
+
+        /* Header Style */
+        .header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .header-center {
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+        }
+
+        /* Panel Structure */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 12px;
+        }
+
+        .panel-title {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 4px;
+        }
+
+        .left-col, .right-col {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Center Column / Radar Screen */
+        .center-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .radar-screen {
+            width: 380px;
+            height: 380px;
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            position: relative;
+            background: radial-gradient(circle, transparent 30%, rgba(0,255,0,0.02) 100%);
+            margin-bottom: 20px;
+        }
+
+        /* Radar Sweep Animation */
+        .radar-screen::after {
+            content: "";
+            position: absolute;
+            width: 50%;
+            height: 50%;
+            background: linear-gradient(45deg, rgba(0, 255, 0, 0.2) 0%, transparent 100%);
+            transform-origin: bottom right;
+            top: 0;
+            left: 0;
+            border-radius: 100% 0 0 0;
+            animation: sweep 4s linear infinite;
+        }
+
+        @keyframes sweep {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Radar Targets */
+        .target {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        /* UI Data Text Layouts */
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+
+        .value-detected {
+            color: var(--wifi-color);
+            font-weight: bold;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Device List Colors */
+        .wifi-item { color: var(--wifi-color); }
+        .ble-item { color: var(--ble-color); }
+        .bt-item { color: var(--bt-color); }
+
+        /* Bottom Row Stats */
+        .bottom-row {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-gap: 15px;
+        }
+
+        .signal-bars {
+            display: inline-block;
+            letter-spacing: -2px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+
+    <!-- Header Section -->
+    <header class="header">
+        <div>☊ ESP32 RADAR</div>
+        <div class="header-center">RF RADAR</div>
+        <div>12:45:30 [🔋 78%]</div>
+    </header>
+
+    <!-- Left Column -->
+    <div class="left-col">
+        <div class="panel">
+            <div class="panel-title">Motion</div>
+            <div class="data-row">
+                <span class="value-detected">🏃 DETECTED</span>
+            </div>
+            <div class="data-row" style="color: var(--text-dark);">
+                <span>LAST: 00:01:23</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">Heading</div>
+            <div class="data-row" style="align-items: center;">
+                <span style="font-size: 2rem;">▲</span>
+                <span style="font-size: 1.5rem; text-align: right;">132°<br><small style="font-size:1rem">SE</small></span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">Orientation (IMU)</div>
+            <div class="data-row"><span>ROLL</span><span>-2.4°</span></div>
+            <div class="data-row"><span>PITCH</span><span>6.7°</span></div>
+            <div class="data-row"><span>YAW</span><span>132.1°</span></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">Magnetometer</div>
+            <div class="data-row"><span>X</span><span>-120</span></div>
+            <div class="data-row"><span>Y</span><span>235</span></div>
+            <div class="data-row"><span>Z</span><span>-45</span></div>
+        </div>
+    </div>
+
+    <!-- Center Column (Radar) -->
+    <div class="center-col">
+        <div class="radar-screen">
+            <!-- Simulated Radar Blips -->
+            <div class="target wifi-item" style="top: 25%; left: 40%;"></div>
+            <div class="target wifi-item" style="top: 70%; left: 35%;"></div>
+            <div class="target ble-item" style="top: 30%; left: 25%;"></div>
+            <div class="target bt-item" style="top: 55%; left: 75%;"></div>
+        </div>
+        
+        <!-- Radar Legend -->
+        <div class="data-row" style="gap: 20px;">
+            <span class="wifi-item">● WIFI</span>
+            <span class="ble-item">● BLE</span>
+            <span class="bt-item">● BT</span>
+        </div>
+        <div style="margin-top: 10px; color: var(--text-dark);">MAX RANGE: 20m</div>
+    </div>
+
+    <!-- Right Column (Devices) -->
+    <div class="right-col">
+        <div class="panel" style="flex: 1;">
+            <div class="panel-title">Devices</div>
+            
+            <!-- WiFi Network Items -->
+            <div style="margin-bottom: 12px;">
+                <div class="wifi-item" style="font-size: 0.8rem; margin-bottom: 4px;">📶 WI-FI (5)</div>
+                <div class="data-row wifi-item"><span>Home_Network</span><span>-42 dBm</span></div>
+                <div class="data-row wifi-item"><span>Office_AP</span><span>-55 dBm</span></div>
+            </div>
+
+            <!-- BLE Items -->
+            <div style="margin-bottom: 12px;">
+                <div class="ble-item" style="font-size: 0.8rem; margin-bottom: 4px;">⚡ BLE (4)</div>
+                <div class="data-row ble-item"><span>BLE_Tracker</span><span>-48 dBm</span></div>
+                <div class="data-row ble-item"><span>Health_Band</span><span>-62 dBm</span></div>
+            </div>
+
+            <!-- Classic Bluetooth Items -->
+            <div>
+                <div class="bt-item" style="font-size: 0.8rem; margin-bottom: 4px;">ᛒ BT (3)</div>
+                <div class="data-row bt-item"><span>BT_Speaker</span><span>-50 dBm</span></div>
+                <div class="data-row bt-item"><span>Car_Kit</span><span>-64 dBm</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Row Section -->
+    <div class="bottom-row">
+        <div class="panel">
+            <div class="panel-title">Signal Strength</div>
+            <div class="data-row wifi-item"><span>WIFI</span><span>-42 dBm</span></div>
+            <div class="data-row ble-item"><span>BLE</span><span>-48 dBm</span></div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">Stats</div>
+            <div class="data-row" style="justify-content: space-around; font-size: 1.2rem;">
+                <span class="wifi-item">📶 5</span>
+                <span class="ble-item">⚡ 4</span>
+                <span class="bt-item">ᛒ 3</span>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">Status</div>
+            <div class="data-row"><span>SCANNING...</span></div>
+            <div class="data-row" style="color: var(--text-dark);"><span>TEMP: 36.2°C</span></div>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>
