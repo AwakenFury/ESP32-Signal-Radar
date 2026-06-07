@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BioTech | RF Fusion HUD</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+<style>
+  :root {
+    --neon-cyan: #00eaff;
+    --neon-red: #ff3b3b;
+    --bg-dark: #030712;
+    --glass: rgba(0, 234, 255, 0.05);
+  }
+
+  html, body {
+    margin: 0; background: var(--bg-dark);
+    font-family: 'Rajdhani', sans-serif; color: var(--neon-cyan);
+    height: 100%; overflow: hidden;
+  }
+
+  /* Cinematic Scanline Overlay */
+  body::before {
+    content: " "; position: fixed; inset: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 4px, 3px 100%; z-index: 100; pointer-events: none;
+  }
+
+  #console {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    background: radial-gradient(circle at center, #07152e 0%, #02050f 100%);
+  }
+
+  #header {
+    padding: 15px 25px; border-bottom: 2px solid var(--neon-cyan);
+    display: flex; justify-content: space-between;
+    font-family: 'Orbitron'; letter-spacing: 3px;
+    text-shadow: 0 0 15px var(--neon-cyan);
+    background: rgba(0, 234, 255, 0.02);
+  }
+
+  #grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr 1fr;
+    grid-template-rows: repeat(3, 1fr);
+    flex: 1; gap: 12px; padding: 15px; overflow: hidden;
+  }
+
+  .panel {
+    background: rgba(0, 0, 0, 0.6); border-left: 3px solid var(--neon-cyan);
+    padding: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    overflow: auto; font-size: 13px;
+  }
+
+  .title { font-family: 'Orbitron'; font-size: 10px; margin-bottom: 8px; color: #fff; border-bottom: 1px solid rgba(0,234,255,0.2); padding-bottom: 4px; }
+
+  /* RADAR CORE */
+  #radar { grid-row: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border-left: none; border: 1px solid var(--neon-cyan); background: var(--glass); }
+  
+  #core {
+    width: 280px; height: 280px; border-radius: 50%;
+    border: 1px solid var(--neon-cyan); position: relative;
+    overflow: hidden; box-shadow: 0 0 30px rgba(0,234,255,0.2);
+  }
+
+  #sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(rgba(0,234,255,0.3), transparent); animation: spin 3s linear infinite; }
+  canvas { position: absolute; inset: 0; }
+  .ring { position: absolute; border: 1px solid rgba(0,234,255,0.15); border-radius: 50%; left: 50%; top: 50%; transform: translate(-50%,-50%); }
+  .label { position: absolute; font-size: 9px; opacity: .7; left: 50%; transform: translateX(-50%); color: #fff; }
+
+  /* LOG */
+  #log-panel { grid-column: span 2; }
+  #log { font-family: monospace; font-size: 11px; }
+  .log-line { margin: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .anomaly { color: var(--neon-red); }
+  .warning { color: #ffb300; }
+
+  /* BUTTONS */
+  .nav-btn {
+    background: transparent; border: 1px solid var(--neon-cyan); color: var(--neon-cyan);
+    padding: 5px 10px; font-family: 'Orbitron'; font-size: 10px; cursor: pointer;
+    clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+    margin-top: 10px;
+  }
+  .nav-btn:hover { background: rgba(0, 234, 255, 0.1); box-shadow: 0 0 10px var(--neon-cyan); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+
+<body>
+
+<div id="console">
+  <div id="header">
+    <span>RF FUSION HUD v2.0</span>
+    <button class="nav-btn" onclick="window.location.href='/'" style="margin:0">BACK TO MAIN</button>
+  </div>
+
+  <div id="grid">
+    <!-- RADAR PANEL -->
+    <div id="radar" class="panel">
+      <div id="core">
+        <div id="sweep"></div>
+        <canvas id="canvas"></canvas>
+      </div>
+      <div class="title" style="border:none; margin-top:10px;">PROXIMITY 0–30m</div>
+    </div>
+
+    <!-- DISTANCE BINS -->
+    <div class="panel"><div class="title">5m</div><div id="m5"></div></div>
+    <div class="panel"><div class="title">10m</div><div id="m10"></div></div>
+    <div class="panel"><div class="title">15m</div><div id="m15"></div></div>
+    <div class="panel"><div class="title">20m</div><div id="m20"></div></div>
+    <div class="panel"><div class="title">25m</div><div id="m25"></div></div>
+    <div class="panel"><div class="title">30m</div><div id="m30"></div></div>
+
+    <!-- PROTOCOL BINS -->
+    <div class="panel"><div class="title">WIFI</div><div id="wifi"></div></div>
+    <div class="panel"><div class="title">BLE / BT</div><div id="ble"></div><div id="bt"></div></div>
+    
+    <!-- SERIAL LOG PANEL -->
+    <div class="panel" id="log-panel">
+      <div class="title">LIVE DATA STREAM</div>
+      <div id="log"></div>
+    </div>
+    
+    <div class="panel"><div class="title">HALL EFFECT</div><div id="hall"></div></div>
+
+  </div>
+</div>
+
+<script>
+const socket = io();
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+canvas.width = 280; canvas.height = 280;
+const center = 140;
+
+/* BUILD RADAR RINGS & LABELS */
+(function(){
+  const core = document.getElementById("core");
+  [20,45,70,95,120,135].forEach(r => {
+    const d = document.createElement("div");
+    d.className = "ring"; d.style.width = r*2+"px"; d.style.height = r*2+"px";
+    core.appendChild(d);
+  });
+  [{t:"10m",r:45},{t:"20m",r:95},{t:"30m",r:135}].forEach(l => {
+    const d = document.createElement("div");
+    d.className = "label"; d.textContent = l.t; d.style.top = (center-l.r)+"px";
+    core.appendChild(d);
+  });
+})();
+
+let devices={}, buffers={}, hallField=0, yaw=0;
+
+
+
+function rssiToMeters(rssi){
+  const clamped = Math.max(-90, Math.min(-30, rssi));
+  let n = (clamped + 90) / 60;
+  return (1 - n) * 30;
+}
+
+function bucket(m){
+  if(m<=8) return 5;
+  if(m<=12) return 10;
+  if(m<=17) return 15;
+  if(m<=22) return 20;
+  if(m<=27) return 25;
+  return 30;
+}
+
+
+
+
+
+socket.on("serial_log", d => {
+  const el = document.getElementById("log");
+  const div = document.createElement("div");
+  div.className = "log-line " + (d.level||"normal");
+  div.textContent = `[${new Date(d.time*1000).toLocaleTimeString()}] ${d.line}`;
+  el.prepend(div);
+  if(el.children.length>20) el.removeChild(el.lastChild);
+});
+
+socket.on("esp32_data", d => {
+  if(!d) return;
+  if(d.type==="imu"){ yaw=d.yaw||0; return; }
+  if(d.type==="hall"){
+    hallField=d.value||0;
+    push("hall","FIELD: "+hallField);
+    return;
+  }
+  if(!d.name) return;
+
+  const m = rssiToMeters(d.rssi??-70);
+  if(!devices[d.name]) devices[d.name]={angle:Math.random()*Math.PI*2,dist:m,x:center,y:center,vx:0,vy:0,trail:[]};
+  
+  const dev = devices[d.name];
+  dev.dist += (m-dev.dist)*0.15;
+  const r = (dev.dist/30)*135;
+  const tx = center+Math.cos(dev.angle - yaw*Math.PI/180)*r;
+  const ty = center+Math.sin(dev.angle - yaw*Math.PI/180)*r;
+  dev.x += (tx-dev.x)*0.1; dev.y += (ty-dev.y)*0.1;
+  dev.trail.push({x:dev.x,y:dev.y});
+  if(dev.trail.length>15) dev.trail.shift();
+
+  const zone = bucket(m);
+  push("m"+zone, `ID: ${d.name} | ${m.toFixed(1)}m`);
+  push(d.type, `${d.name}: ${d.rssi}dBm`);
+});
+
+function draw(){
+  ctx.clearRect(0,0,280,280);
+  for(let id in devices){
+    const d=devices[id];
+    ctx.beginPath();
+    d.trail.forEach((p,i)=> i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+    ctx.strokeStyle="rgba(0,234,255,0.4)"; ctx.stroke();
+    ctx.beginPath(); ctx.arc(d.x,d.y,4,0,Math.PI*2);
+    ctx.fillStyle="#00eaff"; ctx.shadowBlur=10; ctx.shadowColor="#00eaff"; ctx.fill();
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+
+function push(k,t){
+  if(!buffers[k]) buffers[k]=[];
+  buffers[k].unshift(t);
+  if(buffers[k].length>5) buffers[k].pop();
+}
+
+setInterval(()=>{
+  for(let k in buffers){
+    const el=document.getElementById(k);
+    if(el) el.innerHTML=buffers[k].join("<br>");
+  }
+},500);
+</script>
+</body>
+</html>
