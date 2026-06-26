@@ -1,0 +1,345 @@
+
+```html
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+<title>Cyber RF Sentinel</title>
+
+<style>
+
+body{
+margin:0;
+background:#030607;
+color:#00ff9c;
+font-family:monospace;
+overflow:hidden;
+}
+
+.container{
+display:grid;
+grid-template-rows:180px auto 200px;
+height:100vh;
+}
+
+/* ROBOT EYES */
+
+.face{
+display:flex;
+justify-content:center;
+align-items:center;
+gap:150px;
+border-bottom:1px solid #00ff9c;
+}
+
+.eye{
+width:120px;
+height:120px;
+background:#00ff9c;
+border-radius:50%;
+position:relative;
+box-shadow:0 0 40px #00ff9c;
+transition:.2s;
+}
+
+.pupil{
+width:45px;
+height:45px;
+background:black;
+border-radius:50%;
+position:absolute;
+top:38px;
+left:38px;
+transition:.2s;
+}
+
+/* RADAR */
+
+#radar{
+display:block;
+margin:auto;
+background:#010203;
+box-shadow:0 0 20px #00ff9c;
+}
+
+/* PANELS */
+
+.panels{
+display:grid;
+grid-template-columns:1fr 1fr 1fr 1fr;
+border-top:1px solid #00ff9c;
+}
+
+.panel{
+padding:10px;
+border-right:1px solid #00ff9c;
+overflow:auto;
+}
+
+.alert{
+color:#ff0040;
+font-weight:bold;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- ROBOT FACE -->
+
+<div class="face">
+
+<div class="eye">
+<div class="pupil" id="p1"></div>
+</div>
+
+<div class="eye">
+<div class="pupil" id="p2"></div>
+</div>
+
+</div>
+
+<!-- RADAR -->
+
+<canvas id="radar" width="500" height="400"></canvas>
+
+<!-- DEVICE PANELS -->
+
+<div class="panels">
+
+<div class="panel">
+<h3>WiFi</h3>
+<div id="wifi"></div>
+</div>
+
+<div class="panel">
+<h3>BLE</h3>
+<div id="ble"></div>
+</div>
+
+<div class="panel">
+<h3>Bluetooth</h3>
+<div id="bt"></div>
+</div>
+
+<div class="panel">
+<h3>Alerts</h3>
+<div id="alerts"></div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+/* ROBOT EYES */
+
+function look(x,y){
+
+document.querySelectorAll(".pupil").forEach(p=>{
+p.style.transform=`translate(${x}px,${y}px)`
+})
+
+}
+
+function wideEyes(){
+
+document.querySelectorAll(".eye").forEach(e=>{
+e.style.transform="scale(1.3)"
+})
+
+}
+
+function normalEyes(){
+
+document.querySelectorAll(".eye").forEach(e=>{
+e.style.transform="scale(1)"
+})
+
+}
+
+/* RADAR */
+
+let canvas=document.getElementById("radar")
+let ctx=canvas.getContext("2d")
+
+let centerX=canvas.width/2
+let centerY=canvas.height/2
+
+let angle=0
+let devices={}
+
+function drawRadar(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+ctx.strokeStyle="#003f2f"
+
+for(let r=80;r<=200;r+=60){
+
+ctx.beginPath()
+ctx.arc(centerX,centerY,r,0,Math.PI*2)
+ctx.stroke()
+
+}
+
+ctx.strokeStyle="#00ff9c"
+
+ctx.beginPath()
+ctx.moveTo(centerX,centerY)
+
+ctx.lineTo(
+centerX+Math.cos(angle)*220,
+centerY+Math.sin(angle)*220
+)
+
+ctx.stroke()
+
+angle+=0.03
+
+drawDevices()
+
+requestAnimationFrame(drawRadar)
+
+}
+
+function drawDevices(){
+
+for(let mac in devices){
+
+let d=devices[mac]
+
+let dist=mapRSSI(d.rssi)
+
+let x=centerX+Math.cos(d.theta)*dist
+let y=centerY+Math.sin(d.theta)*dist
+
+ctx.fillStyle="#00ff9c"
+
+ctx.beginPath()
+ctx.arc(x,y,5,0,Math.PI*2)
+ctx.fill()
+
+}
+
+}
+
+function mapRSSI(rssi){
+
+let min=-90
+let max=-20
+
+let n=(rssi-min)/(max-min)
+
+return 220-(n*180)
+
+}
+
+/* ALERTS */
+
+function alertMsg(msg){
+
+let div=document.createElement("div")
+
+div.className="alert"
+div.innerText=msg
+
+document.getElementById("alerts").prepend(div)
+
+}
+
+/* SOUND */
+
+function playAlert(){
+
+let a=new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg")
+a.play()
+
+}
+
+/* DEVICE HANDLER */
+
+function addDevice(d){
+
+if(!devices[d.mac]){
+
+d.theta=Math.random()*Math.PI*2
+alertMsg("NEW DEVICE: "+d.mac)
+
+playAlert()
+wideEyes()
+
+setTimeout(normalEyes,1500)
+
+}
+
+devices[d.mac]=d
+
+trackSignal(d.rssi)
+
+updatePanels(d)
+
+}
+
+/* TRACK SIGNAL */
+
+function trackSignal(rssi){
+
+if(rssi>-40) look(0,0)
+
+else if(rssi>-60) look(-15,0)
+
+else look(15,0)
+
+}
+
+/* PANELS */
+
+function updatePanels(d){
+
+let panel=document.getElementById(d.type)
+
+let div=document.createElement("div")
+
+div.innerText=d.name+" "+d.mac+" "+d.rssi
+
+panel.prepend(div)
+
+}
+
+/* SIMULATION (REMOVE WHEN CONNECTING ESP32) */
+
+function simulate(){
+
+let types=["wifi","ble","bt"]
+
+let d={
+
+type:types[Math.floor(Math.random()*3)],
+name:"Device",
+mac:"A"+Math.floor(Math.random()*9999),
+rssi:-30-Math.random()*60
+
+}
+
+addDevice(d)
+
+}
+
+setInterval(simulate,3000)
+
+drawRadar()
+
+</script>
+
+</body>
+
+</html>
+```
