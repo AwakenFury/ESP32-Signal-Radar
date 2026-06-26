@@ -1,0 +1,266 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ESP32 Cyber SOC Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --accent:#00eaff;
+  --accent-soft:rgba(0,234,255,.3);
+  --bg:#01040d;
+  --glass:rgba(10,25,45,.65);
+  --border:rgba(0,234,255,.5);
+  --text:#bffcff;
+  --ok:#1aff1a;
+  --warning:#ffaa00;
+  --danger:#ff5555;
+}
+
+*{box-sizing:border-box;}
+body{margin:0;height:100vh;background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;overflow:hidden;display:flex;flex-direction:column;}
+
+/* GRID BACKGROUND */
+#grid{position:fixed;inset:-50%;background:linear-gradient(rgba(0,255,255,.04) 1px, transparent 1px),linear-gradient(90deg, rgba(0,255,255,.04) 1px, transparent 1px);background-size:80px 80px;animation:drift 30s linear infinite;z-index:0;}
+@keyframes drift{to{transform:translate(-80px,-80px);}}
+
+/* HEADER & FOOTER */
+#cyberHeader,#cyberFooter{position:fixed;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:rgba(0,0,0,0.8);z-index:999;}
+#cyberHeader{top:0;height:60px;border-bottom:1px solid var(--accent);font-family:'Orbitron',sans-serif;}
+#cyberFooter{bottom:0;height:60px;border-top:1px solid var(--accent);font-family:'Orbitron',monospace;}
+#cyberHeader button,#cyberFooter button{background:none;border:1px solid var(--accent);color:inherit;padding:6px 14px;border-radius:6px;cursor:pointer;letter-spacing:1px;}
+#cyberFooter button{padding:10px 20px;}
+#cyberHeader button:hover,#cyberFooter button:hover{background:var(--accent);color:#000;}
+
+/* TAB BUTTONS */
+.tabs{display:flex;gap:6px;margin-bottom:10px;}
+.tabs button.active{background:var(--accent);color:#000;}
+.tabs button{cursor:pointer;}
+
+/* TAB CONTENT */
+.tab-content{display:none;flex-direction:column;flex:1;height:100%;overflow:hidden;position:relative;}
+.tab-content.active{display:flex;}
+
+/* DASHBOARD GRID */
+.dashboard{position:relative;z-index:1;display:grid;grid-template-columns:3fr 1.5fr;grid-template-rows:auto 1fr;gap:14px;padding:14px;height:100%;overflow:hidden;}
+
+/* HUD PANELS */
+.panel{background:var(--glass);border:1px solid var(--border);border-radius:14px;padding:14px;backdrop-filter:blur(14px);box-shadow:0 0 14px rgba(0,234,255,.3);overflow:hidden;}
+.scroll{overflow-y:auto;}
+h2{font-family:'Orbitron',sans-serif;font-size:13px;letter-spacing:2px;margin:0 0 8px;color:var(--accent);}
+.top-panels{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.right-stack{display:flex;flex-direction:column;gap:14px;height:100%;overflow:hidden;}
+.right-stack .panel{flex:1;display:flex;flex-direction:column;min-height:0;}
+.right-stack .scroll{overflow-y:auto;}
+.list{font-size:12px;line-height:1.5;flex:1;}
+::-webkit-scrollbar{width:6px;}
+::-webkit-scrollbar-thumb{background:rgba(0,234,255,.3);border-radius:10px;}
+
+/* RADAR */
+#radar-container{grid-row:span 2;display:flex;align-items:center;justify-content:center;max-height:100%;position:relative;}
+#radar{width:100%;max-width:400px;height:400px;border-radius:50%;border:2px solid var(--accent);position:relative;box-shadow:0 0 40px var(--accent);}
+#sweep{position:absolute;inset:0;border-radius:50%;background:conic-gradient(rgba(0,234,255,.5),rgba(0,234,255,.1),transparent);animation:sweep 4s linear infinite;}
+.ring{position:absolute;inset:0;border:1px solid rgba(0,234,255,.25);border-radius:50%;}
+.ring.inner{inset:14%;}
+.blip{position:absolute;border-radius:50%;pointer-events:auto;cursor:pointer;}
+#threatGauge{width:100%;height:14px;border-radius:7px;background:rgba(255,255,255,.1);overflow:hidden;margin-bottom:8px;}
+#threatLevel{height:100%;width:0%;background:var(--ok);border-radius:7px;transition:width 0.5s, background 0.5s;}
+</style>
+</head>
+<body>
+<div id="grid"></div>
+
+<header id="cyberHeader">
+    <button onclick="window.location.href='Dashboard4.html'">DASHBOARD</button>
+    <span>WIRELESS/NETWORK SOC</span>
+    <button onclick="location.href='cyber2.html'">CLOSE</button>
+</header>
+
+<!-- TAB BUTTONS -->
+<div class="tabs" style="margin-top:60px; z-index:2; position:relative;">
+  <button class="active" onclick="activateTab('dashboardTab', event)">Dashboard</button>
+  <button onclick="activateTab('packetsTab', event)">Packets</button>
+  <button onclick="activateTab('incidentsTab', event)">Incidents</button>
+  <button onclick="activateTab('bandsTab', event)">Bands</button>
+</div>
+
+<!-- TAB CONTENT -->
+<div class="tab-content active" id="dashboardTab">
+  <div class="dashboard">
+    <div class="top-panels">
+      <div class="panel scroll"><h2>Wi-Fi Devices</h2><div id="wifi" class="list"></div></div>
+      <div class="panel scroll"><h2>BLE Devices</h2><div id="ble" class="list"></div></div>
+      <div class="panel scroll"><h2>Bluetooth</h2><div id="bt" class="list"></div></div>
+      <div class="panel scroll"><h2>Magnetometer</h2><div id="mag" class="list"></div></div>
+    </div>
+
+    <div id="radar-container" class="panel">
+      <div id="radar">
+        <div id="sweep"></div>
+        <div class="ring"></div>
+        <div class="ring inner"></div>
+      </div>
+    </div>
+
+    <div class="right-stack">
+      <div class="panel scroll">
+        <h2>Network Statistics</h2>
+        <div id="threatGauge"><div id="threatLevel"></div></div>
+        <div id="stats" class="list"></div>
+      </div>
+      <div class="panel scroll">
+        <h2>Event Timeline / Incidents</h2>
+        <div id="log" class="list"></div>
+      </div>
+      <div class="panel scroll">
+        <h2>Packet Capture</h2>
+        <div id="packets" class="list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tab-content" id="packetsTab">
+  <div class="panel scroll" style="margin:14px;"><h2>Packet Logs</h2><div id="packetLogs" class="list"></div></div>
+</div>
+
+<div class="tab-content" id="incidentsTab">
+  <div class="panel scroll" style="margin:14px;"><h2>Incidents / Alerts</h2><div id="incidentLogs" class="list"></div></div>
+</div>
+
+<div class="tab-content" id="bandsTab">
+  <div class="panel scroll" style="margin:14px;"><h2>Network Bands</h2><div id="bandStats" class="list"></div></div>
+</div>
+
+<footer id="cyberFooter">
+    <button onclick="location.href='Forensics8.html'">FORENSICS</button>
+    <button onclick="location.href='override4.html'">MODERATOR</button>
+    <button onclick="location.href='Network.html'">WIRELESS/NETWORK</button>
+</footer>
+
+<script>
+/* ===== TAB HANDLING ===== */
+function activateTab(id, event){
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  if(event) event.currentTarget.classList.add('active');
+}
+
+/* ===== SOC DASHBOARD ENGINE ===== */
+const wifi = document.getElementById("wifi");
+const ble = document.getElementById("ble");
+const bt = document.getElementById("bt");
+const mag = document.getElementById("mag");
+const stats = document.getElementById("stats");
+const logDiv = document.getElementById("log");
+const packetsDiv = document.getElementById("packets");
+const threatLevelBar = document.getElementById("threatLevel");
+const radar = document.getElementById("radar");
+
+const packetLogsTab = document.getElementById("packetLogs");
+const incidentLogsTab = document.getElementById("incidentLogs");
+const bandStatsTab = document.getElementById("bandStats");
+
+let packetLog = [];
+let radarBlips = [];
+let incidents = [];
+let deviceIncidents = {};
+const bands = ["2.4GHz","5GHz","6GHz"];
+
+function r(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+function time(){return new Date().toLocaleTimeString();}
+
+function generateDevices(list,id){
+  const deviceCount = r(3,8);
+  let html = "";
+  for(let i=0;i<deviceCount;i++){
+    const name = id+"_"+i;
+    const rssi = r(-95,-30);
+    const band = bands[r(0,2)];
+
+    let suspicious=false;
+    if(Math.random()<0.1){
+      suspicious=true;
+      addIncident("ARP/DNS anomaly", `Device ${name} on ${band} suspicious behavior`);
+      deviceIncidents[name] = (deviceIncidents[name]||[]).concat([time()+" ARP/DNS anomaly"]);
+    }
+
+    html+=`• ${name} (${rssi} dBm, ${band})${suspicious?' <span style="color:#ff5555">[ALERT]</span>':''}<br>`;
+    radarBlips.push({angle:Math.random()*2*Math.PI,radius:Math.random()*180,color:suspicious?'#ff5555':id==="wifi"?"lightgreen":id==="ble"?"cyan":"orange",size:6,opacity:1,name:name});
+  }
+  document.getElementById(id).innerHTML = html;
+}
+
+function addPacket(){
+  const src = `192.168.1.${r(2,254)}`;
+  const dst = `192.168.1.${r(2,254)}`;
+  const size = r(40,200);
+  const type = Math.random() > 0.5 ? 'TCP' : 'UDP';
+  let color = type==='TCP' ? '#00eaff' : '#ffaa00';
+  let severity = "normal";
+
+  if(size>150){color='#ffff00';severity="suspicious";}
+  if(src.endsWith('.66')){color='#ff5555';severity="malicious"; addIncident("MITM Detected","Suspicious source "+src);}
+
+  const packet = `<div style="color:${color}">${time()} ${src} → ${dst} (${type}, ${size}B, ${severity})</div>`;
+  packetLog.unshift(packet); if(packetLog.length>50) packetLog.pop();
+  packetsDiv.innerHTML = packetLog.join('');
+  packetLogsTab.innerHTML = packetLog.join('');
+}
+
+function addIncident(title,details){
+  const ts = new Date().toLocaleTimeString();
+  incidents.unshift({title,details,timestamp:ts});
+  if(incidents.length>50) incidents.pop();
+  logDiv.innerHTML = incidents.map(i=>`[${i.timestamp}] ${i.title}: ${i.details}`).join("<br>");
+  incidentLogsTab.innerHTML = logDiv.innerHTML;
+}
+
+function drawBlips(){
+  radar.querySelectorAll('.blip').forEach(b=>b.remove());
+  radarBlips.forEach(b=>{
+    const x=200+Math.cos(b.angle)*b.radius;
+    const y=200+Math.sin(b.angle)*b.radius;
+    const div=document.createElement('div');
+    div.className='blip';
+    div.style.left=`${x}px`; div.style.top=`${y}px`;
+    div.style.width=`${b.size}px`; div.style.height=`${b.size}px`;
+    div.style.background=b.color; div.style.opacity=b.opacity;
+    div.title=b.name;
+    div.onclick=()=>alert(`Device: ${b.name}\nIncidents:\n${(deviceIncidents[b.name]||[]).join('\n') || 'None'}`);
+    radar.appendChild(div);
+    b.opacity -= 0.02;
+  });
+  radarBlips = radarBlips.filter(b=>b.opacity>0);
+}
+
+function updateDashboard(){
+  radarBlips=[];
+  generateDevices(wifi,"wifi");
+  generateDevices(ble,"ble");
+  generateDevices(bt,"bt");
+
+  mag.innerHTML = `X:${r(-40,40)} µT<br>Y:${r(-40,40)} µT<br>Z:${r(-40,40)} µT`;
+
+  let threat = Math.random();
+  if(threat<0.4) threatLevelBar.style.background='var(--ok)';
+  else if(threat<0.7) threatLevelBar.style.background='var(--warning)';
+  else threatLevelBar.style.background='var(--danger)';
+  threatLevelBar.style.width = `${Math.floor(threat*100)}%`;
+
+  stats.innerHTML = `Wi-Fi Devices: ${r(3,8)}<br>BLE Devices: ${r(1,5)}<br>BT Devices: ${r(1,4)}<br>Threat Level: ${Math.floor(threat*100)}%`;
+
+  bandStatsTab.innerHTML = `2.4GHz: ${r(3,8)} devices<br>5GHz: ${r(2,6)} devices<br>6GHz: ${r(1,4)} devices`;
+
+  addPacket();
+  drawBlips();
+}
+
+updateDashboard();
+setInterval(updateDashboard,3000);
+</script>
+</body>
+</html>
