@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Cyber Dashboard Template</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+
+:root{
+    --bg:#01040d;
+    --glass:rgba(10,25,45,.65);
+    --accent:#00eaff;
+    --text:#bffcff;
+    --border:rgba(0,234,255,.35);
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Rajdhani',sans-serif;
+    overflow:hidden;
+}
+
+/* Animated Background */
+
+#grid{
+    position:fixed;
+    inset:-50%;
+
+    background:
+        linear-gradient(rgba(0,255,255,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,255,.04) 1px, transparent 1px);
+
+    background-size:80px 80px;
+    animation:gridMove 30s linear infinite;
+    z-index:0;
+}
+
+@keyframes gridMove{
+
+    to{
+        transform:translate(-80px,-80px);
+    }
+
+}
+
+/* Header */
+
+header{
+
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+
+    height:60px;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    padding:0 20px;
+
+    background:rgba(0,0,0,.8);
+
+    border-bottom:1px solid var(--accent);
+
+    font-family:'Orbitron',sans-serif;
+
+    z-index:100;
+
+}
+
+/* Footer */
+
+footer{
+
+    position:fixed;
+    bottom:0;
+    left:0;
+    right:0;
+
+    height:60px;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background:rgba(0,0,0,.8);
+
+    border-top:1px solid var(--accent);
+
+    font-family:'Orbitron',sans-serif;
+
+}
+
+/* Main Layout */
+
+.dashboard{
+
+    position:absolute;
+
+    top:70px;
+    bottom:70px;
+    left:20px;
+    right:20px;
+
+    display:grid;
+
+    grid-template-columns:3fr 1fr;
+
+    gap:15px;
+
+    z-index:1;
+
+}
+
+/* Generic Panels */
+
+.panel{
+
+    background:var(--glass);
+
+    border:1px solid var(--border);
+
+    border-radius:14px;
+
+    backdrop-filter:blur(12px);
+
+    padding:15px;
+
+    overflow:hidden;
+
+    box-shadow:0 0 18px rgba(0,234,255,.15);
+
+}
+
+.panel h2{
+
+    font-family:'Orbitron';
+
+    color:var(--accent);
+
+    font-size:13px;
+
+    margin-bottom:10px;
+
+    letter-spacing:2px;
+
+}
+
+/* Left Side */
+
+.left{
+
+    display:grid;
+
+    grid-template-rows:180px auto;
+
+    gap:15px;
+
+}
+
+.top{
+
+    display:grid;
+
+    grid-template-columns:repeat(4,1fr);
+
+    gap:15px;
+
+}
+
+.viewer{
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+}
+
+/* Placeholder */
+
+.placeholder{
+
+    width:90%;
+    height:90%;
+
+    border:2px dashed rgba(0,234,255,.4);
+
+    border-radius:12px;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    color:rgba(255,255,255,.4);
+
+    font-family:'Orbitron';
+
+    letter-spacing:2px;
+
+}
+
+/* Right Column */
+
+.right{
+
+    display:grid;
+
+    grid-template-rows:1fr 1fr 1fr;
+
+    gap:15px;
+
+}
+
+button{
+
+    background:none;
+
+    border:1px solid var(--accent);
+
+    color:var(--text);
+
+    padding:6px 14px;
+
+    cursor:pointer;
+
+    border-radius:6px;
+
+}
+
+button:hover{
+
+    background:var(--accent);
+
+    color:black;
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="grid"></div>
+
+<header>
+
+<button>MENU</button>
+
+<div>CYBER DASHBOARD</div>
+
+<button>EXIT</button>
+
+</header>
+
+<div class="dashboard">
+
+<div class="left">
+
+<div class="top">
+
+<div class="panel">
+<h2>PANEL 1</h2>
+</div>
+
+<div class="panel">
+<h2>PANEL 2</h2>
+</div>
+
+<div class="panel">
+<h2>PANEL 3</h2>
+</div>
+
+<div class="panel">
+<h2>PANEL 4</h2>
+</div>
+
+</div>
+
+<div class="panel viewer">
+
+<div class="placeholder">
+
+MAIN VISUAL AREA
+
+</div>
+
+</div>
+
+</div>
+
+<div class="right">
+
+<div class="panel">
+<h2>PANEL A</h2>
+</div>
+
+<div class="panel">
+<h2>PANEL B</h2>
+</div>
+
+<div class="panel">
+<h2>PANEL C</h2>
+</div>
+
+</div>
+
+</div>
+
+<footer>
+
+SYSTEM READY
+
+</footer>
+
+</body>
+</html>
